@@ -65,7 +65,6 @@ def detect(save_img=False):
     (save_dir / "labels" if save_txt else save_dir).mkdir(
         parents=True, exist_ok=True
     )  # make dir
-
     # Initialize
     set_logging()
     device = select_device(opt.device)
@@ -105,6 +104,8 @@ def detect(save_img=False):
             torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters()))
         )  # run once
     t0 = time.time()
+    
+    number_list = []
     
     for path, img, im0s, vid_cap in dataset:
         # Check the image size
@@ -181,6 +182,8 @@ def detect(save_img=False):
             	prediction = n
             cv2.putText(im0, 'Number of people=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)	
 
+            number_list.append(prediction)
+            
             # Stream results
             if view_img:
                 cv2.imshow(str(p), im0)
@@ -206,6 +209,12 @@ def detect(save_img=False):
                             save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h)
                         )
                     vid_writer.write(im0)
+        
+        # Save the average number of people detected to a text file
+        with open(save_dir / "average_number.txt", "w") as f:
+            f.write(f"{sum(number_list) / len(number_list)}")
+            f.write("\n")
+            f.write(f"{number_list}")
 
     if save_txt or save_img:
         s = (
