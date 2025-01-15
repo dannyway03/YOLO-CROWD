@@ -23,7 +23,7 @@ from utils.torch_utils import select_device
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='./yolo-crowd.pt', help='weights path')  # from yolov5/models/
+    parser.add_argument('--weights', type=str, default='./weights/yolo-crowd.pt', help='weights path')  # from yolov5/models/
     parser.add_argument('--img-size', nargs='+', type=int, default=[480, 640], help='image size')  # height, width
     parser.add_argument('--batch-size', type=int, default=1, help='batch size')
     parser.add_argument('--dynamic', action='store_true', help='dynamic ONNX axes')
@@ -49,7 +49,6 @@ if __name__ == '__main__':
 
     # Update model
     for k, m in model.named_modules():
-        print(m)
         m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatibility
         if isinstance(m, models.common.Conv):  # assign export-friendly activations
             if isinstance(m.act, nn.Hardswish):

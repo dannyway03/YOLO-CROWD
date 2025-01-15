@@ -110,7 +110,6 @@ def main(args):
     providers = ['CPUExecutionProvider']
 
     sess_options = ort.SessionOptions()
-    print(ort.get_available_providers())
     # Set graph optimization
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     # Use OpenMP optimizations.
@@ -126,9 +125,6 @@ def main(args):
     ])
 
     cap = cv2.VideoCapture(args.source)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-
-    out = cv2.VideoWriter('./out.mp4', cv2.VideoWriter.fourcc(*'mp4v'), fps, (w, h))
 
     while cap.isOpened():
         ret, frame = cap.read()
