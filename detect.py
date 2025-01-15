@@ -3,18 +3,15 @@ import time
 from pathlib import Path
 
 import cv2
-import numpy as np
 import torch
-import torch.backends.cudnn as cudnn
 from models.experimental import attempt_load
 from numpy import random
-from utils.datasets import LoadImages, LoadStreams
-from utils.general import (apply_classifier, check_img_size, check_imshow,
-                           check_requirements, increment_path,
-                           non_max_suppression, scale_coords, set_logging,
-                           strip_optimizer, xyxy2xywh)
-from utils.plots import plot_one_box
-from utils.torch_utils import load_classifier, select_device, time_synchronized
+from utils.datasets import LoadImages
+from utils.general import (check_img_size,
+                           check_requirements,
+                           non_max_suppression, scale_coords, set_logging)
+from utils.plots import plot_only_box
+from utils.torch_utils import select_device, time_synchronized
 
 
 def resize_numpy_image(img, expected_height, expected_width, device):
@@ -43,28 +40,14 @@ def resize_numpy_image(img, expected_height, expected_width, device):
     return img_resized
 
 
-def detect(save_img=False):
-    source, weights, view_img, save_txt, imgsz = (
+def main(opt, save_img=False):
+
+    source, weights, imgsz = (
         opt.source,
         opt.weights,
-        opt.view_img,
-        opt.save_txt,
         opt.img_size,
     )
-    save_img = not opt.nosave and not source.endswith(".txt")  # save inference images
-    webcam = (
-        source.isnumeric()
-        or source.endswith(".txt")
-        or source.lower().startswith(("rtsp://", "rtmp://", "http://", "https://"))
-    )
 
-    # Directories
-    save_dir = Path(
-        increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)
-    )  # increment run
-    (save_dir / "labels" if save_txt else save_dir).mkdir(
-        parents=True, exist_ok=True
-    )  # make dir
     # Initialize
     set_logging()
     device = select_device(opt.device)
@@ -73,26 +56,12 @@ def detect(save_img=False):
     # Load model
     model = attempt_load(weights, map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
-    imgsz = check_img_size(imgsz, s=stride)  # check img_size
+    imgsz = [check_img_size(x, s=stride) for x in opt.img_size]  # verify imgsz are gs-multiples
     if half:
         model.half()  # to FP16
 
-    # Second-stage classifier
-    classify = False
-    if classify:
-        modelc = load_classifier(name="resnet101", n=2)  # initialize
-        modelc.load_state_dict(
-            torch.load("weights/resnet101.pt", map_location=device)["model"]
-        ).to(device).eval()
-
     # Set Dataloader
-    vid_path, vid_writer = None, None
-    if webcam:
-        view_img = check_imshow()
-        cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride)
-    else:
-        dataset = LoadImages(source, img_size=imgsz, stride=stride)
+    dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
     # Get names and colors
     names = model.module.names if hasattr(model, "module") else model.names
@@ -104,15 +73,16 @@ def detect(save_img=False):
             torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters()))
         )  # run once
     t0 = time.time()
-    
-    number_list = []
-    
+
     for path, img, im0s, vid_cap in dataset:
-        # Check the image size
-        print("Image size:", img.shape)
-        print("im0s size:", im0s.shape)
-        # Resize the image if necessary
-        img = resize_numpy_image(img, imgsz, imgsz, device)
+        # # Check the image size
+        # print("Image size:", img.shape)
+        # print("im0s size:", im0s.shape)
+        # # Resize the image if necessary
+        #img = resize_numpy_image(img, imgsz, imgsz, device)
+
+        img = torch.from_numpy(img).to(device)
+
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img.ndimension() == 3:
@@ -121,6 +91,8 @@ def detect(save_img=False):
         # Inference
         t1 = time_synchronized()
         pred = model(img, augment=opt.augment)[0]
+
+        tp = time_synchronized()
 
         # Apply NMS
         pred = non_max_suppression(
@@ -132,22 +104,11 @@ def detect(save_img=False):
         )
         t2 = time_synchronized()
 
-        # Apply Classifier
-        if classify:
-            pred = apply_classifier(pred, modelc, img, im0s)
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
-            if webcam:  # batch_size >= 1
-                p, s, im0, frame = path[i], "%g: " % i, im0s[i].copy(), dataset.count
-            else:
-                p, s, im0, frame = path, "", im0s, getattr(dataset, "frame", 0)
+            p, s, im0, frame = path, "", im0s, getattr(dataset, "frame", 0)
 
-            p = Path(p)  # to Path
-            save_path = str(save_dir / p.name)  # img.jpg
-            txt_path = str(save_dir / "labels" / p.stem) + (
-                "" if dataset.mode == "image" else f"_{frame}"
-            )  # img.txt
             s += "%gx%g " % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if len(det):
@@ -163,67 +124,24 @@ def detect(save_img=False):
                 # Process the detected objects and draw bounding boxes and labels on the image
                 for *xyxy, conf, cls in reversed(det):  # Loop through detections
                     # Draw bounding box
-                    label = f'{names[int(cls)]} {conf:.2f}'
-                    plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                    plot_only_box(xyxy, im0, color=(255,255,255),line_thickness=2)
 
-                # Optional: Draw custom text like the number of people detected
-                if torch.is_tensor(n):
-                    prediction = n.item()  # Convert tensor to Python number if needed
-                else:
-                    prediction = n
-                cv2.putText(im0, 'Number of people=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             # Print time (inference + NMS)
-            print(f'{s}Done. ({t2 - t1:.3f}s)')
-            
+            print(f'{s} inference: ({tp - t1:.3f}s) nms: ({t2 - tp:.3f}s) total: ({t2 - t1:.3f}s)')
+            #print('%.3f fps' % (1.0/(t2 - t1)))
+
             if torch.is_tensor(n):
-            	prediction = n.item()
+                prediction = n.item()
             else:
-            	prediction = n
-            cv2.putText(im0, 'Number of people=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)	
+                prediction = n
+            cv2.putText(im0, 'Head count=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-            number_list.append(prediction)
-            
             # Stream results
-            if view_img:
-                cv2.imshow(str(p), im0)
-                cv2.waitKey(1)  # 1 millisecond
-                
-            # Save results (image with detections)
-            if save_img:
-                if dataset.mode == "image":
-                    cv2.imwrite(save_path, im0)
-                else:  # 'video' or 'stream'
-                    if vid_path != save_path:  # new video
-                        vid_path = save_path
-                        if isinstance(vid_writer, cv2.VideoWriter):
-                            vid_writer.release()  # release previous video writer
-                        if vid_cap:  # video
-                            fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                            w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                            h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        else:  # stream
-                            fps, w, h = 30, im0.shape[1], im0.shape[0]
-                            save_path += ".mp4"
-                        vid_writer = cv2.VideoWriter(
-                            save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h)
-                        )
-                    vid_writer.write(im0)
-        
-        # Save the average number of people detected to a text file
-        with open(save_dir / "average_number.txt", "w") as f:
-            f.write(f"{sum(number_list) / len(number_list)}")
-            f.write("\n")
-            f.write(f"{number_list}")
-
-    if save_txt or save_img:
-        s = (
-            f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to"
-            f" {save_dir / 'labels'}"
-            if save_txt
-            else ""
-        )
-        print(f"Results saved to {save_dir}{s}")
+            cv2.imshow(str(p), im0)
+            key = cv2.waitKey(1)  # 1 millisecond
+            if key == ord('q'):
+                break
 
     print(f"Done. ({time.time() - t0:.3f}s)")
 
@@ -231,14 +149,12 @@ def detect(save_img=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--weights", nargs="+", type=str, default="yolov5s.pt", help="model.pt path(s)"
+        "--weights", nargs="+", type=str, default="yolo-crowd.pt", help="model.pt path(s)"
     )
     parser.add_argument(
-        "--source", type=str, default="data/images", help="source"
+        "--source", type=str, default="/home/nicola/Software/YOLO-CROWD/data/MOT16-03.mp4", help="source"
     )  # file/folder, 0 for webcam
-    parser.add_argument(
-        "--img-size", type=int, default=640, help="inference size (pixels)"
-    )
+    parser.add_argument('--img-size', nargs='+', type=int, default=[480, 640], help='[train, test] image sizes')
     parser.add_argument(
         "--conf-thres", type=float, default=0.25, help="object confidence threshold"
     )
@@ -246,15 +162,7 @@ if __name__ == "__main__":
         "--iou-thres", type=float, default=0.45, help="IOU threshold for NMS"
     )
     parser.add_argument(
-        "--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
-    )
-    parser.add_argument("--view-img", action="store_true", help="display results")
-    parser.add_argument("--save-txt", action="store_true", help="save results to *.txt")
-    parser.add_argument(
-        "--save-conf", action="store_true", help="save confidences in --save-txt labels"
-    )
-    parser.add_argument(
-        "--nosave", action="store_true", help="do not save images/videos"
+        "--device", default="cpu", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
     )
     parser.add_argument(
         "--classes",
@@ -266,24 +174,10 @@ if __name__ == "__main__":
         "--agnostic-nms", action="store_true", help="class-agnostic NMS"
     )
     parser.add_argument("--augment", action="store_true", help="augmented inference")
-    parser.add_argument("--update", action="store_true", help="update all models")
-    parser.add_argument(
-        "--project", default="runs/detect", help="save results to project/name"
-    )
-    parser.add_argument("--name", default="exp", help="save results to project/name")
-    parser.add_argument(
-        "--exist-ok",
-        action="store_true",
-        help="existing project/name ok, do not increment",
-    )
+
     opt = parser.parse_args()
     print(opt)
     check_requirements(exclude=("pycocotools", "thop"))
 
     with torch.no_grad():
-        if opt.update:  # update all models (to fix SourceChangeWarning)
-            for opt.weights in ["yolov5s.pt", "yolov5m.pt", "yolov5l.pt", "yolov5x.pt"]:
-                detect()
-                strip_optimizer(opt.weights)
-        else:
-            detect()
+        main(opt)

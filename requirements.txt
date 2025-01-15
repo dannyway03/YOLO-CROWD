@@ -1,29 +1,36 @@
 # pip install -r requirements.txt
 
 # base ----------------------------------------
-matplotlib>=3.2.2
-numpy>=1.18.5
-opencv-python>=4.1.2
+matplotlib
+numpy
+opencv-python
 Pillow
-PyYAML>=5.3.1
-scipy>=1.4.1
-torch>=1.7.0
-torchvision>=0.8.1
-tqdm>=4.41.0
+PyYAML
+scipy
+torch
+torchvision
+tqdm
 
 # logging -------------------------------------
-tensorboard>=2.4.1
+tensorboard
 # wandb
 
 # plotting ------------------------------------
-seaborn>=0.11.0
+seaborn
 pandas
 
 # export --------------------------------------
-# coremltools>=4.1
-# onnx>=1.8.1
-# scikit-learn==0.19.2  # for coreml quantization
+# coremltools
+# onnx
+# scikit-learn # for coreml quantization
 
 # extras --------------------------------------
-thop  # FLOPS computation
-pycocotools>=2.0  # COCO mAP
+thop
+pycocotools  # COCO mAP
+
+wandb
+requests
+onnx
+onnxsim
+onnxruntime
+onnxoptimizer
