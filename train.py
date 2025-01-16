@@ -26,13 +26,13 @@ from models.experimental import attempt_load
 from models.yolo import Model
 from utils.autoanchor import check_anchors
 from utils.datasets import create_dataloader
-from utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
-    fitness, strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
-    check_requirements, print_mutation, set_logging, one_cycle, colorstr
+from utils.general import check_dataset, check_file, check_git_status, check_img_size, check_requirements, colorstr, \
+    fitness, get_latest_run, increment_path, init_seeds, labels_to_class_weights, labels_to_image_weights, one_cycle, \
+    print_mutation, set_logging, strip_optimizer
 from utils.google_utils import attempt_download
 from utils.loss import ComputeLoss
-from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
-from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, is_parallel
+from utils.plots import plot_evolution, plot_images, plot_labels, plot_results
+from utils.torch_utils import ModelEMA, intersect_dicts, is_parallel, select_device, torch_distributed_zero_first
 from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
 
 logger = logging.getLogger(__name__)
@@ -323,7 +323,7 @@ def train(hyp, opt, device, tb_writer=None):
                 mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
                 mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                 s = ('%10s' * 2 + '%10.4g' * 6) % (
-                    '%g/%g' % (epoch, epochs - 1), mem, *mloss, targets.shape[0], imgs.shape[-1])
+                        '%g/%g' % (epoch, epochs - 1), mem, *mloss, targets.shape[0], imgs.shape[-1])
                 pbar.set_description(s)
 
                 # Plot
@@ -405,7 +405,7 @@ def train(hyp, opt, device, tb_writer=None):
                 if wandb_logger.wandb:
                     if ((epoch + 1) % opt.save_period == 0 and not final_epoch) and opt.save_period != -1:
                         wandb_logger.log_model(
-                            last.parent, opt, epoch, fi, best_model=best_fitness == fi)
+                                last.parent, opt, epoch, fi, best_model=best_fitness == fi)
                 del ckpt
 
         # end epoch ----------------------------------------------------------------------------------------------------

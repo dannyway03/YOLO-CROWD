@@ -3,16 +3,16 @@ import time
 from pathlib import Path
 
 import cv2
-import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-from models.experimental import attempt_load
 from numpy import random
+
+from models.experimental import attempt_load
 from utils.datasets import LoadImages, LoadStreams
 from utils.general import (apply_classifier, check_img_size, check_imshow,
                            check_requirements, increment_path,
                            non_max_suppression, scale_coords, set_logging,
-                           strip_optimizer, xyxy2xywh)
+                           strip_optimizer)
 from utils.plots import plot_one_box
 from utils.torch_utils import load_classifier, select_device, time_synchronized
 
@@ -29,7 +29,7 @@ def resize_numpy_image(img, expected_height, expected_width, device):
     # Check if resizing is necessary
     if img.shape[0] != expected_height or img.shape[1] != expected_width:
         print(
-            f"Resizing image from {img.shape} to ({expected_height}, {expected_width})"
+                f"Resizing image from {img.shape} to ({expected_height}, {expected_width})"
         )
         img_resized_np = cv2.resize(img, (expected_width, expected_height))
     else:
@@ -37,7 +37,7 @@ def resize_numpy_image(img, expected_height, expected_width, device):
 
     # Convert the resized NumPy array back to a PyTorch tensor (C, H, W) and move to the specified device
     img_resized = (
-        torch.from_numpy(img_resized_np).permute(2, 0, 1).unsqueeze(0).to(device)
+            torch.from_numpy(img_resized_np).permute(2, 0, 1).unsqueeze(0).to(device)
     )
 
     return img_resized
@@ -45,25 +45,25 @@ def resize_numpy_image(img, expected_height, expected_width, device):
 
 def detect(save_img=False):
     source, weights, view_img, save_txt, imgsz = (
-        opt.source,
-        opt.weights,
-        opt.view_img,
-        opt.save_txt,
-        opt.img_size,
+            opt.source,
+            opt.weights,
+            opt.view_img,
+            opt.save_txt,
+            opt.img_size,
     )
     save_img = not opt.nosave and not source.endswith(".txt")  # save inference images
     webcam = (
-        source.isnumeric()
-        or source.endswith(".txt")
-        or source.lower().startswith(("rtsp://", "rtmp://", "http://", "https://"))
+            source.isnumeric()
+            or source.endswith(".txt")
+            or source.lower().startswith(("rtsp://", "rtmp://", "http://", "https://"))
     )
 
     # Directories
     save_dir = Path(
-        increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)
+            increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)
     )  # increment run
     (save_dir / "labels" if save_txt else save_dir).mkdir(
-        parents=True, exist_ok=True
+            parents=True, exist_ok=True
     )  # make dir
     # Initialize
     set_logging()
@@ -82,7 +82,7 @@ def detect(save_img=False):
     if classify:
         modelc = load_classifier(name="resnet101", n=2)  # initialize
         modelc.load_state_dict(
-            torch.load("weights/resnet101.pt", map_location=device)["model"]
+                torch.load("weights/resnet101.pt", map_location=device)["model"]
         ).to(device).eval()
 
     # Set Dataloader
@@ -101,12 +101,12 @@ def detect(save_img=False):
     # Run inference
     if device.type != "cpu":
         model(
-            torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters()))
+                torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters()))
         )  # run once
     t0 = time.time()
-    
+
     number_list = []
-    
+
     for path, img, im0s, vid_cap in dataset:
         # # Check the image size
         # print("Image size:", img.shape)
@@ -127,11 +127,11 @@ def detect(save_img=False):
 
         # Apply NMS
         pred = non_max_suppression(
-            pred,
-            opt.conf_thres,
-            opt.iou_thres,
-            classes=opt.classes,
-            agnostic=opt.agnostic_nms,
+                pred,
+                opt.conf_thres,
+                opt.iou_thres,
+                classes=opt.classes,
+                agnostic=opt.agnostic_nms,
         )
         t2 = time_synchronized()
 
@@ -149,7 +149,7 @@ def detect(save_img=False):
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # img.jpg
             txt_path = str(save_dir / "labels" / p.stem) + (
-                "" if dataset.mode == "image" else f"_{frame}"
+                    "" if dataset.mode == "image" else f"_{frame}"
             )  # img.txt
             s += "%gx%g " % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
@@ -174,24 +174,26 @@ def detect(save_img=False):
                     prediction = n.item()  # Convert tensor to Python number if needed
                 else:
                     prediction = n
-                cv2.putText(im0, 'Number of people=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(im0, 'Number of people=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (0, 255, 0), 2)
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
-            
+
             if torch.is_tensor(n):
                 prediction = n.item()
             else:
                 prediction = n
-            cv2.putText(im0, 'Number of people=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)	
+            cv2.putText(im0, 'Number of people=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0),
+                        2)
 
             number_list.append(prediction)
-            
+
             # Stream results
             if view_img:
                 cv2.imshow(str(p), im0)
                 cv2.waitKey()  # 1 millisecond
-                
+
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == "image":
@@ -209,10 +211,10 @@ def detect(save_img=False):
                             fps, w, h = 30, im0.shape[1], im0.shape[0]
                             save_path += ".mp4"
                         vid_writer = cv2.VideoWriter(
-                            save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h)
+                                save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h)
                         )
                     vid_writer.write(im0)
-        
+
         # Save the average number of people detected to a text file
         with open(save_dir / "average_number.txt", "w") as f:
             f.write(f"{sum(number_list) / len(number_list)}")
@@ -221,10 +223,10 @@ def detect(save_img=False):
 
     if save_txt or save_img:
         s = (
-            f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to"
-            f" {save_dir / 'labels'}"
-            if save_txt
-            else ""
+                f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to"
+                f" {save_dir / 'labels'}"
+                if save_txt
+                else ""
         )
         print(f"Results saved to {save_dir}{s}")
 
@@ -234,50 +236,50 @@ def detect(save_img=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--weights", nargs="+", type=str, default="yolo-crowd.pt", help="model.pt path(s)"
+            "--weights", nargs="+", type=str, default="yolo-crowd.pt", help="model.pt path(s)"
     )
     parser.add_argument(
-        "--source", type=str, default="data/images", help="source"
+            "--source", type=str, default="data/images", help="source"
     )  # file/folder, 0 for webcam
     parser.add_argument(
-        "--img-size", type=int, default=640, help="inference size (pixels)"
+            "--img-size", type=int, default=640, help="inference size (pixels)"
     )
     parser.add_argument(
-        "--conf-thres", type=float, default=0.25, help="object confidence threshold"
+            "--conf-thres", type=float, default=0.25, help="object confidence threshold"
     )
     parser.add_argument(
-        "--iou-thres", type=float, default=0.45, help="IOU threshold for NMS"
+            "--iou-thres", type=float, default=0.45, help="IOU threshold for NMS"
     )
     parser.add_argument(
-        "--device", default="cpu", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
+            "--device", default="cpu", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
     )
     parser.add_argument("--view-img", action="store_false", help="display results")
     parser.add_argument("--save-txt", action="store_true", help="save results to *.txt")
     parser.add_argument(
-        "--save-conf", action="store_true", help="save confidences in --save-txt labels"
+            "--save-conf", action="store_true", help="save confidences in --save-txt labels"
     )
     parser.add_argument(
-        "--nosave", action="store_false", help="do not save images/videos"
+            "--nosave", action="store_false", help="do not save images/videos"
     )
     parser.add_argument(
-        "--classes",
-        nargs="+",
-        type=int,
-        help="filter by class: --class 0, or --class 0 2 3",
+            "--classes",
+            nargs="+",
+            type=int,
+            help="filter by class: --class 0, or --class 0 2 3",
     )
     parser.add_argument(
-        "--agnostic-nms", action="store_true", help="class-agnostic NMS"
+            "--agnostic-nms", action="store_true", help="class-agnostic NMS"
     )
     parser.add_argument("--augment", action="store_true", help="augmented inference")
     parser.add_argument("--update", action="store_true", help="update all models")
     parser.add_argument(
-        "--project", default="runs/detect", help="save results to project/name"
+            "--project", default="runs/detect", help="save results to project/name"
     )
     parser.add_argument("--name", default="exp", help="save results to project/name")
     parser.add_argument(
-        "--exist-ok",
-        action="store_true",
-        help="existing project/name ok, do not increment",
+            "--exist-ok",
+            action="store_true",
+            help="existing project/name ok, do not increment",
     )
     opt = parser.parse_args()
     print(opt)

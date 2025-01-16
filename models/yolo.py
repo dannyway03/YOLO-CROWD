@@ -57,13 +57,11 @@ class Detect(nn.Module):
                 z.append(y.view(bs, -1, self.no))
 
         return x if self.training else (torch.cat(z, 1), x)
-     
+
     @staticmethod
     def _make_grid(nx=20, ny=20):
         yv, xv = torch.meshgrid([torch.arange(ny), torch.arange(nx)], indexing='ij')
         return torch.stack((xv, yv), 2).view((1, 1, ny, nx, 2)).float()
-
-
 
 
 class Model(nn.Module):
@@ -141,7 +139,7 @@ class Model(nn.Module):
 
             x = m(x)  # run
             y.append(x if m.i in self.save else None)  # save output
-            
+
             if visualize:
                 # feature_visualization(x, m.type, m.i, save_dir=visualize)
                 feature_visualization(x, m.type, m.i)
@@ -220,7 +218,8 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                 pass
 
         n = max(round(n * gd), 1) if n > 1 else n  # depth gain
-        if m in [Conv, GhostConv, SimConv, Bottleneck, GhostBottleneck, SPP, DWConv, MixConv2d, Focus, CrossConv, BottleneckCSP,
+        if m in [Conv, GhostConv, SimConv, Bottleneck, GhostBottleneck, SPP, DWConv, MixConv2d, Focus, CrossConv,
+                 BottleneckCSP,
                  C3, C3TR, RepBlock, SEAM, RFEM, C3RFEM, ConvMixer, MultiSEAM]:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output

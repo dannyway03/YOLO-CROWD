@@ -16,12 +16,12 @@ import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image, ExifTags
+from PIL import ExifTags, Image
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from utils.general import check_requirements, xyxy2xywh, xywh2xyxy, xywhn2xyxy, xyn2xy, segment2box, segments2boxes, \
-    resample_segments, clean_str
+from utils.general import check_requirements, clean_str, resample_segments, segment2box, segments2boxes, xyn2xy, \
+    xywh2xyxy, xywhn2xyxy, xyxy2xywh
 from utils.torch_utils import torch_distributed_zero_first
 
 # Parameters
@@ -179,7 +179,7 @@ class LoadImages:  # for inference
             self.count += 1
             img0 = cv2.imread(path)  # BGR
             assert img0 is not None, 'Image Not Found ' + path
-            #print(f'image {self.count}/{self.nf} {path}: ', end='')
+            # print(f'image {self.count}/{self.nf} {path}: ', end='')
 
         # Padded resize
         img = letterbox(img0, self.img_size, stride=self.stride, scaleup=False, auto=False)[0]

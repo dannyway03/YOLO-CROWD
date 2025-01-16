@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
-from torchvision import transforms
 import yaml
 from PIL import Image, ImageDraw, ImageFont
 from scipy.signal import butter, filtfilt
@@ -34,6 +33,7 @@ def color_list():
 
     return [hex2rgb(h) for h in matplotlib.colors.TABLEAU_COLORS.values()]  # or BASE_ (8), CSS4_ (148), XKCD_ (949)
 
+
 def feature_visualization(x, module_type, stage, feature_num=64, save_dir=Path('runs/detect/exp')):
     """
     x: The feature map which you need to visualization
@@ -45,7 +45,7 @@ def feature_visualization(x, module_type, stage, feature_num=64, save_dir=Path('
         # save_dir = "features/"
         # if not os.path.exists(save_dir):
         #     os.makedirs(save_dir)
-    
+
         batch, channels, height, width = x.shape  # batch, channels, height, width
         if height > 1 and width > 1:
             f = save_dir / f"stage{stage}_{module_type.split('.')[-1]}_features.png"  # filename
@@ -65,6 +65,7 @@ def feature_visualization(x, module_type, stage, feature_num=64, save_dir=Path('
             plt.close()
             np.save(str(f.with_suffix('.npy')), x[0].cpu().detach().numpy())  # npy save
 
+
 def hist2d(x, y, n=100):
     # 2d histogram used in labels.png and evolve.png
     xedges, yedges = np.linspace(x.min(), x.max(), n), np.linspace(y.min(), y.max(), n)
@@ -83,6 +84,7 @@ def butter_lowpass_filtfilt(data, cutoff=1500, fs=50000, order=5):
 
     b, a = butter_lowpass(cutoff, fs, order=order)
     return filtfilt(b, a, data)  # forward-backward filter
+
 
 def plot_only_box(x, img, color=None, line_thickness=3):
     # Plots one bounding box on image img
@@ -105,6 +107,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=3):
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
+
 def plot_text_label(img, color=None, label=None, line_thickness=3):
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     h, w, _ = img.shape
@@ -116,6 +119,7 @@ def plot_text_label(img, color=None, label=None, line_thickness=3):
         # c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         # cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(img, label, (x, y), 0, tl / 3, [225, 0, 0], thickness=tf, lineType=cv2.LINE_AA)
+
 
 def plot_one_box_PIL(box, img, color=None, label=None, line_thickness=None):
     img = Image.fromarray(img)

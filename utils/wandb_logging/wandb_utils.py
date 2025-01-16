@@ -132,8 +132,8 @@ class WandbLogger():
                 self.weights = Path(modeldir) / "last.pt"
                 config = self.wandb_run.config
                 opt.weights, opt.save_period, opt.batch_size, opt.bbox_interval, opt.epochs, opt.hyp = str(
-                    self.weights), config.save_period, config.total_batch_size, config.bbox_interval, config.epochs, \
-                                                                                                       config.opt['hyp']
+                        self.weights), config.save_period, config.total_batch_size, config.bbox_interval, config.epochs, \
+                    config.opt['hyp']
             data_dict = dict(self.wandb_run.config.data_dict)  # eliminates the need for config file to resume
         if 'val_artifact' not in self.__dict__:  # If --upload_dataset is set, use the existing artifact, don't download
             self.train_artifact_path, self.train_artifact = self.download_dataset_artifact(data_dict.get('train'),
@@ -172,18 +172,18 @@ class WandbLogger():
             epochs_trained = model_artifact.metadata.get('epochs_trained')
             total_epochs = model_artifact.metadata.get('total_epochs')
             assert epochs_trained < total_epochs, 'training to %g epochs is finished, nothing to resume.' % (
-                total_epochs)
+                    total_epochs)
             return modeldir, model_artifact
         return None, None
 
     def log_model(self, path, opt, epoch, fitness_score, best_model=False):
         model_artifact = wandb.Artifact('run_' + wandb.run.id + '_model', type='model', metadata={
-            'original_url': str(path),
-            'epochs_trained': epoch + 1,
-            'save period': opt.save_period,
-            'project': opt.project,
-            'total_epochs': opt.epochs,
-            'fitness_score': fitness_score
+                'original_url': str(path),
+                'epochs_trained': epoch + 1,
+                'save period': opt.save_period,
+                'project': opt.project,
+                'total_epochs': opt.epochs,
+                'fitness_score': fitness_score
         })
         model_artifact.add_file(str(path / 'last.pt'), name='last.pt')
         wandb.log_artifact(model_artifact,
@@ -196,9 +196,9 @@ class WandbLogger():
         nc, names = (1, ['item']) if single_cls else (int(data['nc']), data['names'])
         names = {k: v for k, v in enumerate(names)}  # to index dictionary
         self.train_artifact = self.create_dataset_table(LoadImagesAndLabels(
-            data['train']), names, name='train') if data.get('train') else None
+                data['train']), names, name='train') if data.get('train') else None
         self.val_artifact = self.create_dataset_table(LoadImagesAndLabels(
-            data['val']), names, name='val') if data.get('val') else None
+                data['val']), names, name='val') if data.get('val') else None
         if data.get('train'):
             data['train'] = WANDB_ARTIFACT_PREFIX + str(Path(project) / 'train')
         if data.get('val'):
@@ -268,11 +268,11 @@ class WandbLogger():
             for *xyxy, conf, cls in predn.tolist():
                 if conf >= 0.25:
                     box_data.append(
-                        {"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
-                         "class_id": int(cls),
-                         "box_caption": "%s %.3f" % (names[cls], conf),
-                         "scores": {"class_score": conf},
-                         "domain": "pixel"})
+                            {"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
+                             "class_id": int(cls),
+                             "box_caption": "%s %.3f" % (names[cls], conf),
+                             "scores": {"class_score": conf},
+                             "domain": "pixel"})
                     total_conf = total_conf + conf
             boxes = {"predictions": {"box_data": box_data, "class_labels": names}}  # inference-space
             id = self.val_table_map[Path(path).name]

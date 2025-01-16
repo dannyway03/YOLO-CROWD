@@ -5,14 +5,14 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
-import os
 
 import onnx
-import onnxsim
 import onnxoptimizer
+import onnxsim
 
 sys.path.append('./')  # to run '$ python *.py' files in subdirectories
 
@@ -27,7 +27,8 @@ from utils.torch_utils import select_device, model_info
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='./weights/yolo-crowd.pt', help='weights path')  # from yolov5/models/
+    parser.add_argument('--weights', type=str, default='./weights/yolo-crowd.pt',
+                        help='weights path')  # from yolov5/models/
     parser.add_argument('--img-size', nargs='+', type=int, default=[480, 640], help='image size')  # height, width
     parser.add_argument('--batch-size', type=int, default=1, help='batch size')
     parser.add_argument('--dynamic', action='store_true', help='dynamic ONNX axes')
@@ -95,7 +96,6 @@ if __name__ == '__main__':
         print('ONNX export success, saved as %s' % f)
     except Exception as e:
         print('ONNX export failure: %s' % e)
-
 
     # Finish
     print('\nExport complete (%.2fs) ' % (time.time() - t))

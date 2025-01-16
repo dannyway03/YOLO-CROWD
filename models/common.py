@@ -13,7 +13,7 @@ from torch.cuda import amp
 from torch.nn.parameter import Parameter
 
 from utils.datasets import letterbox
-from utils.general import non_max_suppression, make_divisible, scale_coords, increment_path, xyxy2xywh
+from utils.general import increment_path, make_divisible, non_max_suppression, scale_coords, xyxy2xywh
 from utils.plots import color_list, plot_one_box
 from utils.torch_utils import time_synchronized
 
@@ -44,11 +44,13 @@ class Conv(nn.Module):
     def fuseforward(self, x):
         return self.act(self.conv(x))
 
+
 def GroupNorm(num_features, num_groups=64, eps=1e-5, affine=True, *args, **kwargs):
     if num_groups > num_features:
         # print('------------arrive maxum groub numbers of:', num_features)
         num_groups = num_features
     return nn.GroupNorm(num_groups, num_features, eps=eps, affine=affine)
+
 
 class XBNConv(nn.Module):
     # Standard convolution
@@ -110,6 +112,7 @@ class TransformerBlock(nn.Module):
         x = x.reshape(b, self.c2, w, h)
         return x
 
+
 class TridentBlock(nn.Module):
     def __init__(self, c1, c2, stride=1, c=False, e=0.5, padding=[1, 2, 3], dilate=[1, 2, 3], bias=False):
         super(TridentBlock, self).__init__()
@@ -143,7 +146,8 @@ class TridentBlock(nn.Module):
         out = self.bn1(out)
         out = self.act(out)
 
-        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride, padding=self.padding[0],
+        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride,
+                                   padding=self.padding[0],
                                    dilation=self.dilate[0])
         out = self.bn2(out)
         out += residual
@@ -157,7 +161,8 @@ class TridentBlock(nn.Module):
         out = self.bn1(out)
         out = self.act(out)
 
-        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride, padding=self.padding[1],
+        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride,
+                                   padding=self.padding[1],
                                    dilation=self.dilate[1])
         out = self.bn2(out)
         out += residual
@@ -171,7 +176,8 @@ class TridentBlock(nn.Module):
         out = self.bn1(out)
         out = self.act(out)
 
-        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride, padding=self.padding[2],
+        out = nn.functional.conv2d(out, self.share_weightconv2, bias=self.bias, stride=self.stride,
+                                   padding=self.padding[2],
                                    dilation=self.dilate[2])
         out = self.bn2(out)
         out += residual
@@ -197,6 +203,7 @@ class TridentBlock(nn.Module):
 
         return base_feat
 
+
 class RFEM(nn.Module):
     def __init__(self, c1, c2, n=1, e=0.5, stride=1):
         super(RFEM, self).__init__()
@@ -217,6 +224,7 @@ class RFEM(nn.Module):
         out = self.act(self.bn(out))
         return out
 
+
 class Residual(nn.Module):
     def __init__(self, fn):
         super(Residual, self).__init__()
@@ -225,32 +233,33 @@ class Residual(nn.Module):
     def forward(self, x):
         return self.fn(x) + x
 
+
 class ConvMixer(nn.Module):
     def __init__(self, c1, c2, depth, kernel_size=3, patch_size=4, reduction=16):
         super(ConvMixer, self).__init__()
         if c1 != c2:
             c2 = c1
         self.DConvN = nn.Sequential(
-            nn.Conv2d(c1, c2, kernel_size=patch_size, stride=patch_size),
-            nn.GELU(),
-            nn.BatchNorm2d(c2),
-            *[nn.Sequential(
-                Residual(nn.Sequential(
-                    nn.Conv2d(c2, c2, kernel_size, groups=c2, padding=1),
-                    nn.GELU(),
-                    nn.BatchNorm2d(c2)
-                )),
-                nn.Conv2d(c2, c1, kernel_size=1),
+                nn.Conv2d(c1, c2, kernel_size=patch_size, stride=patch_size),
                 nn.GELU(),
-                nn.BatchNorm2d(c2)
-            ) for i in range(depth)]
+                nn.BatchNorm2d(c2),
+                *[nn.Sequential(
+                        Residual(nn.Sequential(
+                                nn.Conv2d(c2, c2, kernel_size, groups=c2, padding=1),
+                                nn.GELU(),
+                                nn.BatchNorm2d(c2)
+                        )),
+                        nn.Conv2d(c2, c1, kernel_size=1),
+                        nn.GELU(),
+                        nn.BatchNorm2d(c2)
+                ) for i in range(depth)]
         )
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(c2, c2 // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(c2 // reduction, c2, bias=False),
-            nn.Sigmoid()
+                nn.Linear(c2, c2 // reduction, bias=False),
+                nn.ReLU(inplace=True),
+                nn.Linear(c2 // reduction, c2, bias=False),
+                nn.Sigmoid()
         )
 
     def forward(self, x):
@@ -268,32 +277,32 @@ class SEAM(nn.Module):
         if c1 != c2:
             c2 = c1
         self.DCovN = nn.Sequential(
-            # nn.Conv2d(c1, c2, kernel_size=3, stride=1, padding=1, groups=c1),
-            # nn.GELU(),
-            # nn.BatchNorm2d(c2),
-            *[nn.Sequential(
-                Residual(nn.Sequential(
-                    nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=3, stride=1, padding=1, groups=c2),
-                    nn.GELU(),
-                    nn.BatchNorm2d(c2)
-                )),
-                nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=1, stride=1, padding=0, groups=1),
-                nn.GELU(),
-                nn.BatchNorm2d(c2)
-            ) for i in range(n)]
+                # nn.Conv2d(c1, c2, kernel_size=3, stride=1, padding=1, groups=c1),
+                # nn.GELU(),
+                # nn.BatchNorm2d(c2),
+                *[nn.Sequential(
+                        Residual(nn.Sequential(
+                                nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=3, stride=1, padding=1,
+                                          groups=c2),
+                                nn.GELU(),
+                                nn.BatchNorm2d(c2)
+                        )),
+                        nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=1, stride=1, padding=0, groups=1),
+                        nn.GELU(),
+                        nn.BatchNorm2d(c2)
+                ) for i in range(n)]
         )
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(c2, c2 // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(c2 // reduction, c2, bias=False),
-            nn.Sigmoid()
+                nn.Linear(c2, c2 // reduction, bias=False),
+                nn.ReLU(inplace=True),
+                nn.Linear(c2 // reduction, c2, bias=False),
+                nn.Sigmoid()
         )
 
         self._initialize_weights()
         # self.initialize_layer(self.avg_pool)
         self.initialize_layer(self.fc)
-
 
     def forward(self, x):
         b, c, _, _ = x.size()
@@ -317,37 +326,41 @@ class SEAM(nn.Module):
             if layer.bias is not None:
                 torch.nn.init.constant_(layer.bias, 0)
 
+
 def DcovN(c1, c2, depth, kernel_size=3, patch_size=3):
     dcovn = nn.Sequential(
-        nn.Conv2d(c1, c2, kernel_size=patch_size, stride=patch_size),
-        nn.SiLU(),
-        nn.BatchNorm2d(c2),
-        *[nn.Sequential(
-            Residual(nn.Sequential(
-                nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=kernel_size, stride=1, padding=1, groups=c2),
-                nn.SiLU(),
-                nn.BatchNorm2d(c2)
-            )),
-            nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=1, stride=1, padding=0, groups=1),
+            nn.Conv2d(c1, c2, kernel_size=patch_size, stride=patch_size),
             nn.SiLU(),
-            nn.BatchNorm2d(c2)
-        ) for i in range(depth)]
+            nn.BatchNorm2d(c2),
+            *[nn.Sequential(
+                    Residual(nn.Sequential(
+                            nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=kernel_size, stride=1, padding=1,
+                                      groups=c2),
+                            nn.SiLU(),
+                            nn.BatchNorm2d(c2)
+                    )),
+                    nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=1, stride=1, padding=0, groups=1),
+                    nn.SiLU(),
+                    nn.BatchNorm2d(c2)
+            ) for i in range(depth)]
     )
     return dcovn
 
+
 class SimConv(nn.Module):
     '''Normal Conv with ReLU activation'''
+
     def __init__(self, in_channels, out_channels, kernel_size, stride, groups=1, bias=False):
         super().__init__()
         padding = kernel_size // 2
         self.conv = nn.Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-            groups=groups,
-            bias=bias,
+                in_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+                groups=groups,
+                bias=bias,
         )
         self.bn = nn.BatchNorm2d(out_channels)
         self.act = nn.ReLU()
@@ -358,18 +371,22 @@ class SimConv(nn.Module):
     def forward_fuse(self, x):
         return self.act(self.conv(x))
 
+
 def conv_bn(in_channels, out_channels, kernel_size, stride, padding, groups=1):
     '''Basic cell for rep-style block, including conv and bn'''
     result = nn.Sequential()
     result.add_module('conv', nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
-                                                  kernel_size=kernel_size, stride=stride, padding=padding, groups=groups, bias=False))
+                                        kernel_size=kernel_size, stride=stride, padding=padding, groups=groups,
+                                        bias=False))
     result.add_module('bn', nn.BatchNorm2d(num_features=out_channels))
     return result
+
 
 class RepVGGBlock(nn.Module):
     '''RepVGGBlock is a basic rep-style block, including training and deploy status
     This code is based on https://github.com/DingXiaoH/RepVGG/blob/main/repvgg.py
     '''
+
     def __init__(self, in_channels, out_channels, kernel_size=3,
                  stride=1, padding=1, dilation=1, groups=1, padding_mode='zeros', deploy=False, use_se=False):
         super(RepVGGBlock, self).__init__()
@@ -406,13 +423,18 @@ class RepVGGBlock(nn.Module):
             self.se = nn.Identity()
 
         if deploy:
-            self.rbr_reparam = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride,
-                                         padding=padding, dilation=dilation, groups=groups, bias=True, padding_mode=padding_mode)
+            self.rbr_reparam = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
+                                         stride=stride,
+                                         padding=padding, dilation=dilation, groups=groups, bias=True,
+                                         padding_mode=padding_mode)
 
         else:
-            self.rbr_identity = nn.BatchNorm2d(num_features=in_channels) if out_channels == in_channels and stride == 1 else None
-            self.rbr_dense = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding, groups=groups)
-            self.rbr_1x1 = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=stride, padding=padding_11, groups=groups)
+            self.rbr_identity = nn.BatchNorm2d(
+                    num_features=in_channels) if out_channels == in_channels and stride == 1 else None
+            self.rbr_dense = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
+                                     stride=stride, padding=padding, groups=groups)
+            self.rbr_1x1 = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=stride,
+                                   padding=padding_11, groups=groups)
 
     def forward(self, inputs):
         '''Forward process'''
@@ -470,9 +492,11 @@ class RepVGGBlock(nn.Module):
         if hasattr(self, 'rbr_reparam'):
             return
         kernel, bias = self.get_equivalent_kernel_bias()
-        self.rbr_reparam = nn.Conv2d(in_channels=self.rbr_dense.conv.in_channels, out_channels=self.rbr_dense.conv.out_channels,
+        self.rbr_reparam = nn.Conv2d(in_channels=self.rbr_dense.conv.in_channels,
+                                     out_channels=self.rbr_dense.conv.out_channels,
                                      kernel_size=self.rbr_dense.conv.kernel_size, stride=self.rbr_dense.conv.stride,
-                                     padding=self.rbr_dense.conv.padding, dilation=self.rbr_dense.conv.dilation, groups=self.rbr_dense.conv.groups, bias=True)
+                                     padding=self.rbr_dense.conv.padding, dilation=self.rbr_dense.conv.dilation,
+                                     groups=self.rbr_dense.conv.groups, bias=True)
         self.rbr_reparam.weight.data = kernel
         self.rbr_reparam.bias.data = bias
         for para in self.parameters():
@@ -484,6 +508,7 @@ class RepVGGBlock(nn.Module):
         if hasattr(self, 'id_tensor'):
             self.__delattr__('id_tensor')
         self.deploy = True
+
 
 class BottleRep(nn.Module):
 
@@ -505,40 +530,47 @@ class BottleRep(nn.Module):
         outputs = self.conv2(outputs)
         return outputs + self.alpha * x if self.shortcut else outputs
 
+
 class RepBlock(nn.Module):
     '''
         RepBlock is a stage block with rep-style basic block
     '''
+
     def __init__(self, in_channels, out_channels, n=1, block=RepVGGBlock, basic_block=RepVGGBlock):
         super().__init__()
-        
+
         self.conv1 = block(in_channels, out_channels)
         self.block = nn.Sequential(*(block(out_channels, out_channels) for _ in range(n - 1))) if n > 1 else None
         if block == BottleRep:
             self.conv1 = BottleRep(in_channels, out_channels, basic_block=basic_block, weight=True)
             n = n // 2
-            self.block = nn.Sequential(*(BottleRep(out_channels, out_channels, basic_block=basic_block, weight=True) for _ in range(n - 1))) if n > 1 else None
-       
+            self.block = nn.Sequential(
+                    *(BottleRep(out_channels, out_channels, basic_block=basic_block, weight=True) for _ in
+                      range(n - 1))) if n > 1 else None
+
     def forward(self, x):
         x = self.conv1(x)
         if self.block is not None:
             x = self.block(x)
         return x
 
+
 class Transpose(nn.Module):
     '''Normal Transpose, default for upsampling'''
+
     def __init__(self, in_channels, out_channels, kernel_size=2, stride=2):
         super().__init__()
         self.upsample_transpose = torch.nn.ConvTranspose2d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            bias=True
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                bias=True
         )
 
     def forward(self, x):
         return self.upsample_transpose(x)
+
 
 class MultiSEAM(nn.Module):
     def __init__(self, c1, c2, depth, kernel_size=3, patch_size=[3, 5, 7], reduction=16):
@@ -550,10 +582,10 @@ class MultiSEAM(nn.Module):
         self.DCovN2 = DcovN(c1, c2, depth, kernel_size=kernel_size, patch_size=patch_size[2])
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(c2, c2 // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(c2 // reduction, c2, bias=False),
-            nn.Sigmoid()
+                nn.Linear(c2, c2 // reduction, bias=False),
+                nn.ReLU(inplace=True),
+                nn.Linear(c2 // reduction, c2, bias=False),
+                nn.Sigmoid()
         )
 
     def forward(self, x):
@@ -570,6 +602,7 @@ class MultiSEAM(nn.Module):
         y = torch.exp(y)
         return x * y.expand_as(x)
 
+
 class Bottleneck(nn.Module):
     # Standard bottleneck
     def __init__(self, c1, c2, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, shortcut, groups, expansion
@@ -582,6 +615,7 @@ class Bottleneck(nn.Module):
     def forward(self, x):
         return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
 
+
 class Bottleneck_XBN(nn.Module):
     # Standard bottleneck
     def __init__(self, c1, c2, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, shortcut, groups, expansion
@@ -593,6 +627,7 @@ class Bottleneck_XBN(nn.Module):
 
     def forward(self, x):
         return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
+
 
 class BottleneckCSP(nn.Module):
     # CSP Bottleneck https://github.com/WongKinYiu/CrossStagePartialNetworks
@@ -628,6 +663,7 @@ class C3(nn.Module):
     def forward(self, x):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
 
+
 class C3RFEM(nn.Module):
     def __init__(self, c1, c2, n=1, shortcut=True, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
         super().__init__()
@@ -642,6 +678,7 @@ class C3RFEM(nn.Module):
 
     def forward(self, x):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
+
 
 class C3TR(C3):
     # C3 module with TransformerBlock()
@@ -675,6 +712,7 @@ class Focus(nn.Module):
     def forward(self, x):  # x(b,c,w,h) -> y(b,4c,w/2,h/2)
         return self.conv(torch.cat([x[..., ::2, ::2], x[..., 1::2, ::2], x[..., ::2, 1::2], x[..., 1::2, 1::2]], 1))
         # return self.conv(self.contract(x))
+
 
 class Contract(nn.Module):
     # Contract width-height into channels, i.e. x(1,64,80,80) to x(1,256,40,40)

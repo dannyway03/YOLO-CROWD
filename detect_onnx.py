@@ -1,6 +1,5 @@
 import argparse
 import multiprocessing
-import time
 
 import cv2
 import numpy as np
@@ -68,14 +67,15 @@ def process_frame(samples, session):
 
     return torch.Tensor(output)
 
+
 def postprocess_output(output, frame_orig, frame):
     # Apply NMS
     output = non_max_suppression(
-        output,
-        opt.conf_thres,
-        opt.iou_thres,
-        classes=opt.classes,
-        agnostic=opt.agnostic_nms,
+            output,
+            opt.conf_thres,
+            opt.iou_thres,
+            classes=opt.classes,
+            agnostic=opt.agnostic_nms,
     )
 
     for i, det in enumerate(output):  # detections per image
@@ -84,8 +84,8 @@ def postprocess_output(output, frame_orig, frame):
             det[:, :4] = scale_coords(frame.shape[2:], det[:, :4], frame_orig.shape).round()
             return det
 
-def visualize(det, frame, frame_time=0.0):
 
+def visualize(det, frame, frame_time=0.0):
     # Print results
     for c in det[:, -1].unique():
         n = (det[:, -1] == c).sum()  # detections per class
@@ -100,15 +100,17 @@ def visualize(det, frame, frame_time=0.0):
         prediction = n.item()
     else:
         prediction = n
-    cv2.putText(frame, 'Head count=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 5, cv2.LINE_AA)
-    cv2.putText(frame, 'Head count=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2, cv2.LINE_AA)
+    cv2.putText(frame, 'Head count=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 5,
+                cv2.LINE_AA)
+    cv2.putText(frame, 'Head count=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2,
+                cv2.LINE_AA)
     if frame_time:
         text = f'{(1000.0 * frame_time):.3f}' + ' ms'
-        cv2.putText(frame, text, (frame.shape[1] - 200, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 5, cv2.LINE_AA)
+        cv2.putText(frame, text, (frame.shape[1] - 200, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 5,
+                    cv2.LINE_AA)
         cv2.putText(frame, text, (frame.shape[1] - 200, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
 
     return frame
-
 
 
 def main(args):
@@ -121,13 +123,12 @@ def main(args):
     # Use OpenMP optimizations.
     sess_options.intra_op_num_threads = multiprocessing.cpu_count()
 
-
     session = ort.InferenceSession(args.weights, providers=providers, sess_options=sess_options)
     b, c, h, w = session.get_inputs()[0].shape
 
     transform = standard_transforms.Compose([
-        standard_transforms.ToTensor(),
-        #standard_transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            standard_transforms.ToTensor(),
+            # standard_transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
     cap = cv2.VideoCapture(args.source)
@@ -136,26 +137,23 @@ def main(args):
         ret, frame = cap.read()
         if ret:
             t1 = time_synchronized()
-            frame_ = letterbox(frame, (h,w), scaleup=False, auto=False)[0]
+            frame_ = letterbox(frame, (h, w), scaleup=False, auto=False)[0]
 
             # Convert
             frame_ = transform(frame_).unsqueeze(0)
             output = process_frame(frame_, session)
-            tp  = time_synchronized()
+            tp = time_synchronized()
 
             det = postprocess_output(output, frame, frame_)
             t2 = time_synchronized()
 
-            frame = visualize(det, frame, float(t2-t1))
+            frame = visualize(det, frame, float(t2 - t1))
             print(f'Inference: ({tp - t1:.3f}s) nms: ({t2 - tp:.3f}s) total: ({t2 - t1:.3f}s)')
             # Stream results
             cv2.imshow("output", frame)
             key = cv2.waitKey(1)  # 1 millisecond
             if key == ord('q'):
                 break
-
-
-
 
             # # Generate the density map
             # density_map = gaussian_filter_density((h, w), points)
@@ -172,32 +170,31 @@ def main(args):
             cv2.waitKey(1)
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--weights", nargs="+", type=str, default="weights/yolo-crowd.onnx", help="model.pt path(s)"
+            "--weights", nargs="+", type=str, default="weights/yolo-crowd.onnx", help="model.pt path(s)"
     )
     parser.add_argument(
-        "--source", type=str, default="data/MOT16-03.mp4", help="source"
+            "--source", type=str, default="data/MOT16-03.mp4", help="source"
     )  # file/folder, 0 for webcam
     parser.add_argument(
-        "--conf-thres", type=float, default=0.25, help="object confidence threshold"
+            "--conf-thres", type=float, default=0.25, help="object confidence threshold"
     )
     parser.add_argument(
-        "--iou-thres", type=float, default=0.45, help="IOU threshold for NMS"
+            "--iou-thres", type=float, default=0.45, help="IOU threshold for NMS"
     )
     parser.add_argument(
-        "--device", default="cpu", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
+            "--device", default="cpu", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
     )
     parser.add_argument(
-        "--classes",
-        nargs="+",
-        type=int,
-        help="filter by class: --class 0, or --class 0 2 3",
+            "--classes",
+            nargs="+",
+            type=int,
+            help="filter by class: --class 0, or --class 0 2 3",
     )
     parser.add_argument(
-        "--agnostic-nms", action="store_true", help="class-agnostic NMS"
+            "--agnostic-nms", action="store_true", help="class-agnostic NMS"
     )
 
     opt = parser.parse_args()
