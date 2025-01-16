@@ -149,7 +149,7 @@ def main(opt, save_img=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--weights", nargs="+", type=str, default="yolo-crowd.pt", help="model.pt path(s)"
+        "--weights", nargs="+", type=str, default="weights/yolo-crowd.pt", help="model.pt path(s)"
     )
     parser.add_argument(
         "--source", type=str, default="/home/nicola/Software/YOLO-CROWD/data/MOT16-03.mp4", help="source"

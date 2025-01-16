@@ -84,7 +84,7 @@ def postprocess_output(output, frame_orig, frame):
             det[:, :4] = scale_coords(frame.shape[2:], det[:, :4], frame_orig.shape).round()
             return det
 
-def visualize(det, frame):
+def visualize(det, frame, frame_time=0.0):
 
     # Print results
     for c in det[:, -1].unique():
@@ -100,18 +100,24 @@ def visualize(det, frame):
         prediction = n.item()
     else:
         prediction = n
-    cv2.putText(frame, 'Head count=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(frame, 'Head count=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 5, cv2.LINE_AA)
+    cv2.putText(frame, 'Head count=' + str(prediction), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2, cv2.LINE_AA)
+    if frame_time:
+        text = f'{(1000.0 * frame_time):.3f}' + ' ms'
+        cv2.putText(frame, text, (frame.shape[1] - 200, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 5, cv2.LINE_AA)
+        cv2.putText(frame, text, (frame.shape[1] - 200, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
 
     return frame
 
 
 
 def main(args):
-    providers = ['CPUExecutionProvider']
+    providers = ['OpenVINOExecutionProvider']
 
     sess_options = ort.SessionOptions()
+    print(ort.get_available_providers())
     # Set graph optimization
-    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
     # Use OpenMP optimizations.
     sess_options.intra_op_num_threads = multiprocessing.cpu_count()
 
@@ -140,13 +146,14 @@ def main(args):
             det = postprocess_output(output, frame, frame_)
             t2 = time_synchronized()
 
-            frame = visualize(det, frame)
+            frame = visualize(det, frame, float(t2-t1))
+            print(f'Inference: ({tp - t1:.3f}s) nms: ({t2 - tp:.3f}s) total: ({t2 - t1:.3f}s)')
             # Stream results
             cv2.imshow("output", frame)
             key = cv2.waitKey(1)  # 1 millisecond
             if key == ord('q'):
                 break
-            print(f'Inference: ({tp - t1:.3f}s) nms: ({t2 - tp:.3f}s) total: ({t2 - t1:.3f}s)')
+
 
 
 
@@ -169,10 +176,10 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--weights", nargs="+", type=str, default="yolo-crowd.onnx", help="model.pt path(s)"
+        "--weights", nargs="+", type=str, default="weights/yolo-crowd.onnx", help="model.pt path(s)"
     )
     parser.add_argument(
-        "--source", type=str, default="/home/nicola/Software/YOLO-CROWD/data/MOT16-03.mp4", help="source"
+        "--source", type=str, default="data/MOT16-03.mp4", help="source"
     )  # file/folder, 0 for webcam
     parser.add_argument(
         "--conf-thres", type=float, default=0.25, help="object confidence threshold"
