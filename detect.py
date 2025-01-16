@@ -11,7 +11,7 @@ from utils.general import (check_img_size,
                            check_requirements,
                            non_max_suppression, scale_coords, set_logging)
 from utils.plots import plot_only_box
-from utils.torch_utils import select_device, time_synchronized
+from utils.torch_utils import select_device, time_synchronized, model_info
 
 
 def resize_numpy_image(img, expected_height, expected_width, device):
@@ -55,10 +55,12 @@ def main(opt, save_img=False):
 
     # Load model
     model = attempt_load(weights, map_location=device)  # load FP32 model
-    stride = int(model.stride.max())  # model stride
+    stride = int(model.stride.max()) * 2 # model stride
     imgsz = [check_img_size(x, s=stride) for x in opt.img_size]  # verify imgsz are gs-multiples
     if half:
         model.half()  # to FP16
+
+    model_info(model, img_size=imgsz)
 
     # Set Dataloader
     dataset = LoadImages(source, img_size=imgsz, stride=stride)

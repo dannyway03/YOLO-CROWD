@@ -7,7 +7,11 @@ Usage:
 import argparse
 import sys
 import time
+from pathlib import Path
+import os
 
+import onnx
+import onnxsim
 import onnxoptimizer
 
 sys.path.append('./')  # to run '$ python *.py' files in subdirectories
@@ -19,7 +23,7 @@ import models
 from models.experimental import attempt_load
 from utils.activations import Hardswish, SiLU
 from utils.general import set_logging, check_img_size
-from utils.torch_utils import select_device
+from utils.torch_utils import select_device, model_info
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -44,7 +48,7 @@ if __name__ == '__main__':
     gs = int(max(model.stride))  # grid size (max stride)
     opt.img_size = [check_img_size(x, gs) for x in opt.img_size]  # verify img_size are gs-multiples
 
-    # Input
+    # Dummy input
     img = torch.zeros(opt.batch_size, 3, *opt.img_size).to(device)  # image size(1,3,320,192) iDetection
 
     # Update model
@@ -58,17 +62,17 @@ if __name__ == '__main__':
         # elif isinstance(m, models.yolo.Detect):
         #     m.forward = m.forward_export  # assign forward (optional)
     model.model[-1].export = not opt.grid  # set Detect() layer grid export
-    y = model(img)  # dry run
+    model.eval()
 
+    model_info(model, img_size=opt.img_size)
 
     # ONNX export
     try:
-        import onnx
-
         print('\nStarting ONNX export with onnx %s...' % onnx.__version__)
-        f = opt.weights.replace('.pt', '.onnx')  # filename
-        torch.onnx.export(model, img, f, verbose=False, opset_version=13, input_names=['images'],
-                          output_names=['classes', 'boxes'] if y is None else ['output'],
+        f = Path(opt.weights).stem + '_1x3x' + str(opt.img_size[0]) + 'x' + str(opt.img_size[1]) + '.onnx'
+        f = '/'.join([os.path.dirname(os.path.abspath(opt.weights)), f])
+        torch.onnx.export(model, (img,), f, verbose=False, opset_version=13, input_names=['images'],
+                          output_names=['output'],
                           dynamic_axes={'images': {0: 'batch', 2: 'height', 3: 'width'},  # size(1,3,640,640)
                                         'output': {0: 'batch', 2: 'y', 3: 'x'}} if opt.dynamic else None)
 
@@ -78,8 +82,6 @@ if __name__ == '__main__':
         # print(onnx.helper.printable_graph(onnx_model.graph))  # print a human readable model
 
         try:
-            import onnxsim
-
             print('\nStarting to simplify ONNX...')
             onnx_model, check = onnxsim.simplify(onnx_model)
             assert check, 'assert check failed'
@@ -96,4 +98,4 @@ if __name__ == '__main__':
 
 
     # Finish
-    print('\nExport complete (%.2fs). Visualize with https://github.com/lutzroeder/netron.' % (time.time() - t))
+    print('\nExport complete (%.2fs) ' % (time.time() - t))
